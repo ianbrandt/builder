@@ -2,61 +2,136 @@
 
 <project name="YuiSharedTargets">
 
-    <echo level="info">Starting Build For ${component}</echo>
+    <dirname property="targets.basedir" file="${ant.file.YuiSharedTargets}" />
+    <import file="${targets.basedir}/macrolib.xml"
+            description="Macrodef definitions - jslint, yuicompessor, registerversion" />
 
-    <echo level="verbose">Ant Properties</echo>
-    <echo level="verbose">    Home : ${ant.home}</echo>
-    <echo level="verbose">    Ant Version : ${ant.version}</echo>
-    <echo level="verbose">    Build File : ${ant.file}</echo>
-    <echo level="verbose">Local Build Properties</echo>
-    <echo level="verbose">    version : ${yui.version}</echo>
-    <echo level="verbose">    srcdir : ${srcdir}</echo>
-    <echo level="verbose">    builddir : ${builddir}</echo>
-    <echo level="verbose">    component : ${component}</echo>
-    <echo level="verbose">    component.basefilename : ${component.basefilename}</echo>
-    <echo level="verbose">    component.basedir : ${component.basedir}</echo>
-    <echo level="verbose">    component.builddir : ${component.builddir}</echo>
-    <echo level="verbose">Global Build Properties</echo>
-    <echo level="verbose">    global.build.base : ${global.build.base}</echo>
-    <echo level="verbose">    global.build.component : ${global.build.component}</echo>
-    <echo level="verbose">    global.build.component.assets : ${global.build.component.assets}</echo>
-
-    <dirname property="targets.basedir" file="${ant.file.YuiSharedTargets}"/>
-    <import file="${targets.basedir}/macrolib.xml" description="Macrodef definitions - jslint, yuicompessor, registerversion" />
-
-    <target name="all" depends="local, deploy" description="Build and Deploy to Global Build Directory" />
-    <target name="local" depends="clean, init, build, minify, lint" description="Build and Deploy to Local Build Directory" />
+    <target name="all"
+            depends="local, deploy"
+            description="Build and Deploy to Global Build Directory" />
+    <target name="local"
+            depends="init, lint, build, minify"
+            description="Build and Deploy to Local Build Directory" />
 
     <target name="init">
-        <tstamp/>
+        <tstamp />
+
+        <echo level="info">Starting Build For ${component}</echo>
+
+        <echo level="verbose">Ant Properties</echo>
+        <echo level="verbose">    Home : ${ant.home}</echo>
+        <echo level="verbose">    Ant Version : ${ant.version}</echo>
+        <echo level="verbose">    Build File : ${ant.file}</echo>
+        <echo level="verbose">Local Build Properties</echo>
+        <echo level="verbose">    version : ${yui.version}</echo>
+        <echo level="verbose">    srcdir : ${srcdir}</echo>
+        <echo level="verbose">    builddir : ${builddir}</echo>
+        <echo level="verbose">    component : ${component}</echo>
+        <echo level="verbose">    component.basefilename : ${component.basefilename}</echo>
+        <echo level="verbose">    component.basedir : ${component.basedir}</echo>
+        <echo level="verbose">    component.builddir : ${component.builddir}</echo>
+        <echo level="verbose">Global Build Properties</echo>
+        <echo level="verbose">    global.build.base : ${global.build.base}</echo>
+        <echo level="verbose">    global.build.component : ${global.build.component}</echo>
+        <echo level="verbose">    global.build.component.assets : ${global.build.component.assets}</echo>
+
         <mkdir dir="${component.builddir}" />
         <createdetails />
-        <antcall target="-lint-server"/>
     </target>
 
-    <target name="-lint-server" description="Start JSLint Server" unless="lint.skip">
-        <antcall target="-node">
-            <param name="src" value="${builddir}/lib/jslint/jslint-node.js"/>
-        </antcall>
+    <target name="clean" description="Clean Local Build Directory" unless="clean.skip">
+        <delete dir="${component.builddir}" />
     </target>
 
-    <target name="-node" description="Start NodeJS Server" unless="node.spawn">
+    <target name="build" />
+
+    <!-- CORE -->
+    <target name="buildcore"
+            depends="builddebug, -createcore, -loggerregex"
+            description="Create component.js">
+        <fixcrlf srcdir="${component.builddir}"
+                 includes="${component.basefilename}.js"
+                 eol="${buildfiles.eol}" />
+    </target>
+
+    <target name="-createcore">
+        <copy file="${component.builddir}/${component.basefilename}-debug.js"
+              tofile="${component.builddir}/${component.basefilename}.js" />
+    </target>
+
+    <target name="-loggerregex"
+            description="Replace logger statements"
+            unless="component.logger.regex.skip">
+        <echo level="verbose">Replacing Logger Statements in ${component.builddir}/${component.basefilename}.js</echo>
+        <replaceregexp file="${component.builddir}/${component.basefilename}.js"
+                       byline="${component.logger.regex.byline}"
+                       match="${component.logger.regex}"
+                       replace="${component.logger.regex.replace}"
+                       flags="${component.logger.regex.flags}" />
+    </target>
+
+    <!-- DEBUG -->
+    <target name="builddebug"
+            depends="-concatdebug, -registerdebug, -prependdebug, -appenddebug"
+            description="Create component-debug.js">
+        <fixcrlf srcdir="${component.builddir}"
+                 includes="${component.basefilename}-debug.js"
+                 eol="${buildfiles.eol}" />
+    </target>
+
+    <target name="-concatdebug">
+        <concatsource destfile="${component.builddir}/${component.basefilename}-debug.js"
+                      sourcedir="${component.jsfiles.base}"
+                      sourcefiles="${component.jsfiles}"
+                      property="debug.outofdate" />
+    </target>
+
+    <target name="-registerdebug" description="Abstract--override in module build." />
+
+    <target name="lint" description="Run jslint over the local source files" unless="lint.skip">
+        <outofdate>
+            <sourcefiles>
+                <fileset dir="${component.jsfiles.base}" includes="${component.jsfiles}" />
+            </sourcefiles>
+            <targetfiles path="${component.builddir}/${component.basefilename}.js" />
+            <sequential>
+                <antcall target="-lint-server" />
+                <jslint>
+                    <jsfiles>
+                        <fileset dir="${component.jsfiles.base}" includes="${component.jsfiles}" />
+                    </jsfiles>
+                </jslint>
+            </sequential>
+        </outofdate>
+    </target>
+
+    <target name="-lint-server" description="Start JSLint Server" unless="node.spawn">
         <if>
             <not>
-                <http url="${node.jslint.url}"/>
+                <http url="${node.jslint.url}" />
             </not>
             <then>
+                <property name="src" value="${builddir}/lib/jslint/jslint-node.js" />
                 <!-- You can't set failifexecutionfails if spawn is true. Argh. -->
                 <!-- Check if it's installed first. -->
-                <exec resultproperty="node.status" executable="node" failonerror="false" failifexecutionfails="false" searchpath="true" resolveexecutable="true">
-                    <arg value="-v"/>
+                <exec resultproperty="node.status"
+                      executable="node"
+                      failonerror="false"
+                      failifexecutionfails="false"
+                      searchpath="true"
+                      resolveexecutable="true">
+                    <arg value="-v" />
                 </exec>
                 <if>
-                    <equals arg1="${node.status}" arg2="0"/>
-                        <then>
+                    <equals arg1="${node.status}" arg2="0" />
+                    <then>
                         <echo level="info">Spawning Node.js app at: ${src}</echo>
-                        <exec executable="node" spawn="true" failonerror="false" searchpath="true" resolveexecutable="true">
-                            <arg value="${src}"/>
+                        <exec executable="node"
+                              spawn="true"
+                              failonerror="false"
+                              searchpath="true"
+                              resolveexecutable="true">
+                            <arg value="${src}" />
                         </exec>
                     </then>
                     <else>
@@ -68,133 +143,90 @@
             </then>
         </if>
         <!-- Don't try to start again. -->
-        <property name="node.spawn" value="true"/>
+        <property name="node.spawn" value="true" />
     </target>
 
-    <target name="clean" description="Clean Local Build Directory" unless="clean.skip">
-       <delete dir="${component.builddir}" />
-    </target>
-
-    <target name="build" />
-
-    <!-- CORE -->
-    <target name="buildcore" depends="builddebug, -createcore, -loggerregex" description="Create component.js">
-        <fixcrlf srcdir="${component.builddir}" includes="${component.basefilename}.js" eol="${buildfiles.eol}" />
-    </target>
-
-    <target name="-createcore">
-        <copy file="${component.builddir}/${component.basefilename}-debug.js" tofile="${component.builddir}/${component.basefilename}.js" />
-    </target>
-
-    <target name="-loggerregex" description="Replace logger statements" unless="component.logger.regex.skip">
-        <echo level="verbose">Replacing Logger Statements in ${component.builddir}/${component.basefilename}.js</echo>
-        <replaceregexp file="${component.builddir}/${component.basefilename}.js"
-                            byline="${component.logger.regex.byline}"
-                            match="${component.logger.regex}"
-                            replace="${component.logger.regex.replace}"
-                            flags="${component.logger.regex.flags}" />
-    </target>
-
-    <!-- DEBUG -->
-    <target name="builddebug" depends="-concatdebug, -registerdebug, -prependdebug, -appenddebug" description="Create component-debug.js">
-        <fixcrlf srcdir="${component.builddir}" includes="${component.basefilename}-debug.js" eol="${buildfiles.eol}" />
-    </target>
-
-    <target name="-concatdebug">
-        <concatsource destfile="${component.builddir}/${component.basefilename}-debug.js" sourcedir="${component.jsfiles.base}" sourcefiles="${component.jsfiles}" />
-    </target>
-
-    <target name="-registerdebug" description="Abstract--override in module build." />
-
-    <!-- MIN -->
     <target name="minify" description="Create component-min.js from component.js">
-        <yuicompress src="${component.builddir}/${component.basefilename}.js" dest="${component.builddir}/${component.basefilename}-min.js" args="${yuicompressor.js.args.internal}" />
-    	<if>
-            <available file="${component.builddir}/lang" type="dir" />
-    	    <then>
-    	    	<for param="file">
-    	    	    <path>
-    	    	      <fileset dir="${component.builddir}/lang" includes="*.js"/>
-    	    	    </path>
-    	    	    <sequential>
-    	    	       <yuicompress src="@{file}" dest="@{file}" args="${yuicompressor.js.args.internal}" />
-    	    	    </sequential>
-    	    	</for>
-    	    </then>
-        </if>
-    </target>
-
-    <target name="lint" description="Run jslint over the local build files (default settings)" unless="lint.skip">
+        <yuicompress src="${component.builddir}/${component.basefilename}.js"
+                     dest="${component.builddir}/${component.basefilename}-min.js"
+                     args="${yuicompressor.js.args.internal}" />
         <if>
-            <istrue value="${lint.all}" />
+            <available file="${component.builddir}/lang" type="dir" />
             <then>
-                <!-- Lint all files -->
-                <jslint>
-                    <jsfiles>
-                        <fileset dir="${component.builddir}" includes="*.js" />
-                    </jsfiles>
-                </jslint>
+                <for param="file">
+                    <path>
+                        <fileset dir="${component.builddir}/lang" includes="*.js" />
+                    </path>
+                    <sequential>
+                        <yuicompress src="@{file}"
+                                     dest="@{file}"
+                                     args="${yuicompressor.js.args.internal}" />
+                    </sequential>
+                </for>
             </then>
-            <else>
-                <!-- Only lint raw files -->
-                <jslint>
-                    <jsfiles>
-                        <fileset dir="${component.builddir}" includes="*.js">
-                            <none>
-                                <filename name="*-debug.js"/>
-                                <filename name="*-min.js"/>
-                            </none>
-                        </fileset>
-                    </jsfiles>
-                </jslint>
-            </else>
         </if>
     </target>
 
     <!-- DEPLOY -->
-    <target name="deploy" description="Copy files to global location" depends="deploybuild, deployassets, deployskins, deploylang, deploydocs"></target>
+    <target name="deploy"
+            description="Copy files to global location"
+            depends="deploybuild, deployassets, deployskins, deploylang, deploydocs">
+    </target>
 
     <target name="deploybuild" description="Copy built files to global build location">
-        <copy todir="${global.build.component}" overwrite="true" verbose="false">
+        <copy todir="${global.build.component}" verbose="false">
             <fileset dir="${component.builddir}" includes="*.js" />
         </copy>
     </target>
 
     <target name="deployassets" if="component.assets.exist">
-        <copy todir="${global.build.component.assets}" flatten="${component.assets.flatten}" overwrite="true" verbose="false">
-            <fileset dir="${component.assets.base}" includes="${component.assets.files}" excludes="skins/, legacy/" />
+        <copy todir="${global.build.component.assets}"
+              flatten="${component.assets.flatten}"
+              verbose="false">
+            <fileset dir="${component.assets.base}"
+                     includes="${component.assets.files}"
+                     excludes="skins/, legacy/" />
         </copy>
 
-        <copy todir="${global.build.component.assets}" flatten="${component.assets.legacy.flatten}" preservelastmodified="true" failonerror="false" verbose="false">
-            <fileset dir="${component.assets.legacy.base}" includes="${component.assets.legacy.files}" excludes="skins/" />
+        <copy todir="${global.build.component.assets}"
+              flatten="${component.assets.legacy.flatten}"
+              failonerror="false"
+              verbose="false">
+            <fileset dir="${component.assets.legacy.base}"
+                     includes="${component.assets.legacy.files}"
+                     excludes="skins/" />
         </copy>
     </target>
 
     <target name="deployskins" if="skins.exist">
         <for param="skin.dir">
             <path>
-                <dirset dir="${component.assets.base}/skins/" includes="*"/>
+                <dirset dir="${component.assets.base}/skins/" includes="*" />
             </path>
             <sequential>
-                <basename property="skin.name" file="@{skin.dir}"/>
+                <basename property="skin.name" file="@{skin.dir}" />
                 <echo level="verbose">Deploying Skin files for @{skin.dir} :: ${skin.name}</echo>
-                <copy todir="${global.build.component.assets}/skins/${skin.name}" overwrite="true" verbose="false">
-                    <fileset dir="${component.builddir}/assets/skins/${skin.name}" includes="${component}.css" />
+                <copy todir="${global.build.component.assets}/skins/${skin.name}"
+                      verbose="false">
+                    <fileset dir="${component.builddir}/assets/skins/${skin.name}"
+                             includes="${component}.css" />
                 </copy>
 
-                <copy todir="${global.build.component.assets}/skins/${skin.name}" overwrite="true" verbose="false">
-                    <fileset dir="${component.assets.skins.base}/${skin.name}" includes="${component.assets.skins.files}" />
+                <copy todir="${global.build.component.assets}/skins/${skin.name}"
+                      verbose="false">
+                    <fileset dir="${component.assets.skins.base}/${skin.name}"
+                             includes="${component.assets.skins.files}" />
                 </copy>
-		<var name="skin.name" unset="true" />
+                <var name="skin.name" unset="true" />
             </sequential>
         </for>
     </target>
 
     <target name="deploylang" description="Copy language bundles to global build location">
-    	<if>
+        <if>
             <available file="${component.builddir}/lang" type="dir" />
-    	    <then>
-                <copy todir="${global.build.component}/lang" overwrite="true" failonerror="false">
+            <then>
+                <copy todir="${global.build.component}/lang" failonerror="false">
                     <fileset dir="${component.builddir}/lang" includes="*.js" />
                 </copy>
             </then>
@@ -210,45 +242,51 @@
             <filelist dir="${component.basedir}" files="${component.prependfiles}" />
             <filterchain>
                 <tokenfilter>
-                    <filetokenizer/>
-                    <replaceregex
-                        pattern="${component.logger.regex}"
-                        replace="${component.logger.regex.replace}"
-                        flags="${component.logger.regex.flags}" />
+                    <filetokenizer />
+                    <replaceregex pattern="${component.logger.regex}"
+                                  replace="${component.logger.regex.replace}"
+                                  flags="${component.logger.regex.flags}" />
                 </tokenfilter>
             </filterchain>
         </concat>
-        <concat destfile="${workingdir}/${component.basefilename}.js.tmp" fixlastline="true" append="true">
+        <concat destfile="${workingdir}/${component.basefilename}.js.tmp"
+                fixlastline="true"
+                append="true">
             <filelist dir="${component.builddir}" files="${component.basefilename}.js" />
         </concat>
-        <move file="${workingdir}/${component.basefilename}.js.tmp" tofile="${component.builddir}/${component.basefilename}.js" />
+        <move file="${workingdir}/${component.basefilename}.js.tmp"
+              tofile="${component.builddir}/${component.basefilename}.js" />
     </target>
 
     <target name="-append" if="component.appendfiles">
-        <concat destfile="${component.builddir}/${component.basefilename}.js" fixlastline="true" append="true">
+        <concat destfile="${component.builddir}/${component.basefilename}.js"
+                fixlastline="true"
+                append="true">
             <filelist dir="${component.basedir}" files="${component.appendfiles}" />
             <filterchain>
                 <tokenfilter>
-                    <filetokenizer/>
-                    <replaceregex
-                        pattern="${component.logger.regex}"
-                        replace="${component.logger.regex.replace}"
-                        flags="${component.logger.regex.flags}" />
+                    <filetokenizer />
+                    <replaceregex pattern="${component.logger.regex}"
+                                  replace="${component.logger.regex.replace}"
+                                  flags="${component.logger.regex.flags}" />
                 </tokenfilter>
             </filterchain>
         </concat>
     </target>
 
     <target name="-prependdebug" if="component.prependfiles">
-        <concat destfile="${workingdir}/${component.basefilename}-debug.js.tmp" fixlastline="true" >
+        <concat destfile="${workingdir}/${component.basefilename}-debug.js.tmp" fixlastline="true">
             <filelist dir="${component.basedir}" files="${component.prependfiles}" />
             <filelist dir="${component.builddir}" files="${component.basefilename}-debug.js" />
         </concat>
-        <move file="${workingdir}/${component.basefilename}-debug.js.tmp" tofile="${component.builddir}/${component.basefilename}-debug.js" />
+        <move file="${workingdir}/${component.basefilename}-debug.js.tmp"
+              tofile="${component.builddir}/${component.basefilename}-debug.js" />
     </target>
 
     <target name="-appenddebug" if="component.appendfiles">
-        <concat destfile="${component.builddir}/${component.basefilename}-debug.js" fixlastline="true" append="true">
+        <concat destfile="${component.builddir}/${component.basefilename}-debug.js"
+                fixlastline="true"
+                append="true">
             <filelist dir="${component.basedir}" files="${component.appendfiles}" />
         </concat>
     </target>

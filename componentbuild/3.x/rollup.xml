@@ -1,5 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
-
 <project name="YuiRollupTargets">
 
     <dirname property="rolluptargets.basedir" file="${ant.file.YuiRollupTargets}"/>
@@ -18,7 +17,7 @@
         <if>
             <isset property="rollup"/>
             <then>
-                <fail if="rollup.sub">You're trying to build a rollup of a rollup of a rollup. Are you sure that's what you want?</fail> 
+                <fail if="rollup.sub">You're trying to build a rollup of a rollup of a rollup. Are you sure that's what you want?</fail>
                 <echo level="info">Rollup of rollup detected; setting rollup.sub properties.</echo>
                 <subant target="${component.rollup.target}" inheritall="false" >
                     <filelist dir="${buildfile.dir}" files="${component.rollup.modules.buildfiles}" />
@@ -45,15 +44,17 @@
         <concat destfile="${rollup.builddir}/${rollup.component.basefilename}.js" append="true" fixlastline="true" >
             <filelist dir="${component.builddir}" files="${component.basefilename}.js" />
         </concat>
-        <concat destfile="${rollup.builddir}/${rollup.component.basefilename}-debug.js" append="true" fixlastline="true">
+        <concat destfile="${rollup.builddir}/${rollup.component.basefilename}-debug.js" append="true"
+            fixlastline="true">
             <filelist dir="${component.builddir}" files="${component.basefilename}-debug.js" />
         </concat>
     </target>
 
     <target name="-rolluplangs" if="rolluplangs">
-    	<for list="${component.rollup.lang}" param="lang" trim="true">
+        <for list="${component.rollup.lang}" param="lang" trim="true">
             <sequential>
-                <concat destfile="${rollup.builddir}/lang/${rollup.component}_@{lang}.js" append="true" fixlastline="true">
+                <concat destfile="${rollup.builddir}/lang/${rollup.component}_@{lang}.js" append="true"
+                    fixlastline="true">
                     <fileset dir="${component.builddir}/lang" includes="*_@{lang}.js" />
                 </concat>
             </sequential>
@@ -67,13 +68,15 @@
     <target name="-appendall" depends="-appenddebug, -append" if="component.appendfiles" />
 
     <target name="-registerall" unless="register.skip">
-        <addrollup module="${component.module}" file="${component.builddir}/${component.basefilename}-debug.js" details="${component.details.hash}" />
-        <addrollup module="${component.module}" file="${component.builddir}/${component.basefilename}.js" details="${component.details.hash}" />
+        <addrollup module="${component.module}" file="${component.builddir}/${component.basefilename}-debug.js"
+            details="${component.details.hash}" />
+        <addrollup module="${component.module}" file="${component.builddir}/${component.basefilename}.js"
+            details="${component.details.hash}" />
 
-    	<if>
-    		<available file="${component.builddir}/lang/" type="dir" />
-    		<then>
-    		    <addlangrollup module="${component.module}" dir="${component.builddir}/lang/" />
+        <if>
+            <available file="${component.builddir}/lang/" type="dir" />
+            <then>
+                <addlangrollup module="${component.module}" dir="${component.builddir}/lang/" />
             </then>
     	</if>
     </target>
@@ -98,7 +101,8 @@
             <filelist dir="${tests.builddir}" files="${tests.rollup.module.files}"/>
         </concat>
 
-        <addrollup module="${tests.component}" file="${tests.builddir}/${tests.component}.js" details="{${tests.details.use}}" />
+        <addrollup module="${tests.component}" file="${tests.builddir}/${tests.component}.js"
+            details="{${tests.details.use}}" />
 
         <echo level="info">Rollup test module ${tests.component} created</echo>
     </target>

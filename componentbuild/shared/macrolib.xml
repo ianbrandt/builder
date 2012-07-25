@@ -18,8 +18,7 @@
                                    input="${@{from}}"
                                    casesensitive="false"
                                    regexp="([^\,\s]+)"
-                                   replace="'\1'"
-                                    />
+                                   replace="'\1'" />
 
                     <property name="@{to}" value="@{key}:[${array}]" />
                 </then>
@@ -30,23 +29,30 @@
     <macrodef name="createdetails">
         <sequential>
             <arrayliteral from="component.use" to="component.details.use" key="use" />
-            <arrayliteral from="component.supersedes" to="component.details.supersedes" key="supersedes" />
-            <arrayliteral from="component.requires" to="component.details.requires" key="requires" />
-            <arrayliteral from="component.optional" to="component.details.optional" key="optional" />
+            <arrayliteral from="component.supersedes"
+                          to="component.details.supersedes"
+                          key="supersedes" />
+            <arrayliteral from="component.requires"
+                          to="component.details.requires"
+                          key="requires" />
+            <arrayliteral from="component.optional"
+                          to="component.details.optional"
+                          key="optional" />
             <arrayliteral from="component.after" to="component.details.after" key="after" />
-        	<arrayliteral from="component.lang" to="component.details.lang" key="lang" />
+            <arrayliteral from="component.lang" to="component.details.lang" key="lang" />
             <if>
                 <isset property="component.skinnable" />
                 <then>
-                    <property name="component.details.skinnable" value="skinnable:${component.skinnable}" />
+                    <property name="component.details.skinnable"
+                              value="skinnable:${component.skinnable}" />
                 </then>
             </if>
 
             <propertyselector property="details.list"
-                             delimiter=","
-                             match="component\.details.([^\.]*)"
-                             select="\1"
-                             casesensitive="false" />
+                              delimiter=","
+                              match="component\.details.([^\.]*)"
+                              select="\1"
+                              casesensitive="false" />
 
             <var name="details" value="" />
             <if>
@@ -58,10 +64,10 @@
                         </sequential>
                     </for>
                     <propertyregex property="component.details.hash"
-                      input="{${details}}"
-                      regexp="(\,\s*?\})"
-                      replace="}"
-                      casesensitive="false" />
+                                   input="{${details}}"
+                                   regexp="(\,\s*?\})"
+                                   replace="}"
+                                   casesensitive="false" />
                 </then>
                 <else>
                     <property name="component.details.hash" value="" />
@@ -74,11 +80,11 @@
         <!-- The yui2 builder-integration script embeds macrolib.xml
              by itself for other macros, which leaves yuicompressor.jar
              unset. If that's the case, don't define the compressor tasks. -->
-        <isset property="yuicompressor.jar"/>
+        <isset property="yuicompressor.jar" />
         <then>
             <taskdef name="yuicompressor"
-                classname="com.yahoo.platform.yui.compressor.CompressorTask"
-                classpath="${yuicompressor.jar}"/>
+                     classname="com.yahoo.platform.yui.compressor.CompressorTask"
+                     classpath="${yuicompressor.jar}" />
 
             <!-- Maps the legacy yuicompress task into a yuicompressor task. -->
             <macrodef name="yuicompress">
@@ -86,10 +92,16 @@
                 <attribute name="dest" />
                 <attribute name="args" />
                 <!-- Unused. Type is detected automatically from the @{src} filename. -->
-                <attribute name="type" default="?"/>
+                <attribute name="type" default="?" />
                 <!-- If you had to override this, use the type option in args instead. -->
                 <sequential>
-                    <yuicompressor input="@{src}" output="@{dest}" options="@{args}"/>
+                    <outofdate>
+                        <sourcefiles path="@{src}" />
+                        <targetfiles path="@{dest}" />
+                        <sequential>
+                            <yuicompressor input="@{src}" output="@{dest}" options="@{args}" />
+                        </sequential>
+                    </outofdate>
                 </sequential>
             </macrodef>
         </then>
@@ -100,29 +112,40 @@
         <attribute name="sourcedir" />
         <attribute name="sourcefiles" />
         <attribute name="workingdir" default="${workingdir}" />
+        <attribute name="property" default="@{destfile}.outofdate" />
 
-        <element name="filters" optional="true" description="Additonal filters to apply to individual files"/>
+        <element name="filters"
+                 optional="true"
+                 description="Additonal filters to apply to individual files" />
 
         <sequential>
-            <echo level="verbose">Concatenating</echo>
-            <echo level="verbose">    Source Files : @{sourcefiles}</echo>
-            <echo level="verbose">    In Source Dir : @{sourcedir}</echo>
-            <echo level="verbose">    To : @{destfile}</echo>
+            <outofdate property="@{property}">
+                <sourcefiles>
+                    <filelist dir="@{sourcedir}" files="@{sourcefiles}" />
+                </sourcefiles>
+                <targetfiles path="@{destfile}" />
+                <sequential>
+                    <echo level="verbose">Concatenating</echo>
+                    <echo level="verbose">    Source Files: @{sourcefiles}</echo>
+                    <echo level="verbose">    In Source Dir: @{sourcedir}</echo>
+                    <echo level="verbose">    To: @{destfile}</echo>
 
-            <delete dir="@{workingdir}" quiet="true"/>
-            <copy todir="@{workingdir}">
-                <filelist dir="@{sourcedir}" files="@{sourcefiles}" />
-                <filterchain>
-                    <filters />
-                    <fixcrlf fixlast="true" eof="remove"/>
-                </filterchain>
-            </copy>
+                    <delete dir="@{workingdir}" quiet="true" />
+                    <copy todir="@{workingdir}">
+                        <filelist dir="@{sourcedir}" files="@{sourcefiles}" />
+                        <filterchain>
+                            <filters />
+                            <fixcrlf fixlast="true" eof="remove" />
+                        </filterchain>
+                    </copy>
 
-            <concat destfile="@{destfile}" fixlastline="true">
-                <filelist dir="@{workingdir}" files="@{sourcefiles}" />
-            </concat>
+                    <concat destfile="@{destfile}" fixlastline="true">
+                        <filelist dir="@{workingdir}" files="@{sourcefiles}" />
+                    </concat>
 
-            <delete dir="${workingdir}" quiet="true" />
+                    <delete dir="${workingdir}" quiet="true" />
+                </sequential>
+            </outofdate>
         </sequential>
     </macrodef>
 
@@ -136,15 +159,17 @@
             <if>
                 <not>
                     <or>
-                        <istrue value="${jshint.online}"/>
-                        <istrue value="${jshint.skip}"/>
+                        <istrue value="${jshint.online}" />
+                        <istrue value="${jshint.skip}" />
                     </or>
                 </not>
                 <then>
                     <trycatch>
                         <try>
-                            <exec executable="jshint" failifexecutionfails="true" outputproperty="jshint.version">
-                                <arg line="--version"/>
+                            <exec executable="jshint"
+                                  failifexecutionfails="true"
+                                  outputproperty="jshint.version">
+                                <arg line="--version" />
                             </exec>
                         </try>
                         <catch>
@@ -155,40 +180,49 @@
             </if>
             <if>
                 <or>
-                    <isset property="jshint.version"/>
-                    <istrue value="${jshint.online}"/>
+                    <isset property="jshint.version" />
+                    <istrue value="${jshint.online}" />
                 </or>
                 <then>
-                    <property name="jshint.online" value="true"/>
-                    <exec executable="jshint" failifexecutionfails="false" outputproperty="jshint.results" resultproperty="jshint.resultcode" errorproperty="jshint.error" logError="false">
-                        <arg line="'${jsfileargs}'"/>
+                    <property name="jshint.online" value="true" />
+                    <exec executable="jshint"
+                          failifexecutionfails="false"
+                          outputproperty="jshint.results"
+                          resultproperty="jshint.resultcode"
+                          errorproperty="jshint.error"
+                          logError="false">
+                        <arg line="'${jsfileargs}'" />
                     </exec>
                     <if>
-                        <equals arg1="${jshint.resultcode}" arg2="1" forcestring="true"/>
+                        <equals arg1="${jshint.resultcode}" arg2="1" forcestring="true" />
                         <then>
                             <echo>Using JSHint Version: ${jshint.version}</echo>
                             <echo>${jshint.results}</echo>
-                            <echo></echo>
+                            <echo>
+                            </echo>
                         </then>
                     </if>
                 </then>
                 <else>
                     <if>
                         <or>
-                            <istrue value="${node.online}"/>
-                            <http url="${node.jslint.url}"/>
+                            <istrue value="${node.online}" />
+                            <http url="${node.jslint.url}" />
                         </or>
                         <then>
-                            <property name="node.online" value="true"/>
-                            <post to="${node.jslint.url}" property="node.jslint.response" failonerror="${lint.failonerror}" verbose="false">
-                                <prop name="files" value="${jsfileargs}"/>
-                                <prop name="failonerror" value="${lint.failonerror}"/>
+                            <property name="node.online" value="true" />
+                            <post to="${node.jslint.url}"
+                                  property="node.jslint.response"
+                                  failonerror="${lint.failonerror}"
+                                  verbose="false">
+                                <prop name="files" value="${jsfileargs}" />
+                                <prop name="failonerror" value="${lint.failonerror}" />
                             </post>
                             <!-- Since Ant doesn't really failonerror for the post task,
                                  handle this ourselves: -->
                             <if>
                                 <not>
-                                    <isset property="node.jslint.response"/>
+                                    <isset property="node.jslint.response" />
                                 </not>
                                 <then>
                                     <fail>JSLint failed. To view lint output and continue the build, run ant with -Dlint.failonerror=false.</fail>
@@ -198,19 +232,21 @@
                                 </else>
                             </if>
                             <!-- Clear property for next run: -->
-                            <var name="node.jslint.response" unset="true"/>
+                            <var name="node.jslint.response" unset="true" />
                         </then>
                         <else>
                             <echo>Using Rhino. Install nodejs to improve jslint speed, or skip with -Dlint.skip=true</echo>
-                            <!-- 
-                               Need to find a way to convert fileset to args (script?) to 
+                            <!--
+                               Need to find a way to convert fileset to args (script?) to
                                avoid ' ', which will break for files with ' in them
-                               
+
                                Evaluates to the following java execution line...
                                java -r js.jar jslintconsole.js 'file1.js' 'file2.js' 'file3.js'
                             -->
 
-                            <java jar="${rhino.jar}" fork="true" failonerror="${jslint.failonerror}">
+                            <java jar="${rhino.jar}"
+                                  fork="true"
+                                  failonerror="${jslint.failonerror}">
                                 <arg file="${jslintconsole.js}" />
                                 <arg value="${jslintsrc.js}" />
                                 <arg line="'${jsfileargs}'" />
@@ -227,11 +263,12 @@
         <attribute name="classname" />
         <attribute name="file" />
         <sequential>
-            <loadfile srcfile="${builddir}/files/versioncode.txt" property="@{module}-@{classname}-version" >
+            <loadfile srcfile="${builddir}/files/versioncode.txt"
+                      property="@{module}-@{classname}-version">
                 <filterchain>
                     <replacetokens>
-                        <token key="MODULE" value="@{module}"/>
-                        <token key="CLASSNAME" value="@{classname}"/>
+                        <token key="MODULE" value="@{module}" />
+                        <token key="CLASSNAME" value="@{classname}" />
                     </replacetokens>
                 </filterchain>
             </loadfile>
@@ -246,7 +283,7 @@
         <attribute name="module" />
         <attribute name="dest" />
         <attribute name="lang" default="" />
-    	<attribute name="details" default = ""/>
+        <attribute name="details" default="" />
 
         <sequential>
             <if>
@@ -268,7 +305,7 @@
                     <property name="@{module}@{lang}_fullname" value="@{module}_@{lang}" />
                 </else>
             </if>
-            
+
             <if>
                 <available file="@{dir}/${@{module}@{lang}_fullname}.pres" />
                 <then>
@@ -281,15 +318,22 @@
                         <arg file="${component.langbuilddir}/${@{module}@{lang}_fullname}.js" />
                     </java>
                     <echo level="verbose">Wrapping ${component.langbuilddir}/${@{module}@{lang}_fullname}.js in YUI.add, Y.Intl.add</echo>
-                    <loadfile srcfile="${component.langbuilddir}/${@{module}@{lang}_fullname}.js" property="@{module}@{lang}-strs-loaded" encoding="utf-8" />
+                    <loadfile srcfile="${component.langbuilddir}/${@{module}@{lang}_fullname}.js"
+                              property="@{module}@{lang}-strs-loaded"
+                              encoding="utf-8" />
                 </then>
                 <else>
                     <echo level="verbose">Wrapping @{dir}/${@{module}@{lang}_fullname}.js in YUI.add, Y.Intl.add</echo>
-                    <loadfile srcfile="@{dir}/${@{module}@{lang}_fullname}.js" property="@{module}@{lang}-strs-loaded" encoding="utf-8" />
+                    <loadfile srcfile="@{dir}/${@{module}@{lang}_fullname}.js"
+                              property="@{module}@{lang}-strs-loaded"
+                              encoding="utf-8" />
                 </else>
             </if>
 
-            <copy file="${builddir}/files/langtemplate.txt" tofile="@{dest}/${@{module}@{lang}_fullname}.js" overwrite="true" outputencoding="utf-8">
+            <copy file="${builddir}/files/langtemplate.txt"
+                  tofile="@{dest}/${@{module}@{lang}_fullname}.js"
+                  overwrite="true"
+                  outputencoding="utf-8">
                 <filterset>
                     <filter token="LANG" value="@{lang}" />
                     <filter token="LANG_MODULE" value="lang/${@{module}@{lang}_fullname}" />
@@ -302,12 +346,11 @@
         </sequential>
 
     </macrodef>
-	
+
     <macrodef name="addmodule">
         <attribute name="file" />
         <attribute name="module" />
         <attribute name="details" default="" />
-
         <sequential>
             <if>
                 <equals arg1="@{details}" arg2="" />
@@ -350,10 +393,10 @@
             <echo level="verbose">Adding Rollup @{file} using YUI.add</echo>
             <copy file="${builddir}/files/rolluptemplate.txt" tofile="@{file}" overwrite="true">
                 <filterset>
-                    <filter token="CODE" value="${@{module}-@{file}-code}"/>
+                    <filter token="CODE" value="${@{module}-@{file}-code}" />
                     <filter token="YUIVAR" value="${yui.variable}" />
-                    <filter token="MODULE" value="@{module}"/>
-                    <filter token="DETAILS" value="${@{module}-details}"/>
+                    <filter token="MODULE" value="@{module}" />
+                    <filter token="DETAILS" value="${@{module}-details}" />
                 </filterset>
             </copy>
         </sequential>
@@ -361,65 +404,70 @@
 
     <macrodef name="addlangrollup">
 
-    	<attribute name="module" />
+        <attribute name="module" />
         <attribute name="dir" />
 
         <sequential>
             <echo level="verbose">Registering rollup info for lang files in @{dir} using YUI.add</echo>
 
-        	<for list="${component.rollup.lang}" param="lang" trim="true">
+            <for list="${component.rollup.lang}" param="lang" trim="true">
                 <sequential>
-                    <loadfile srcfile="@{dir}/@{module}_@{lang}.js" property="@{module}-@{lang}-code" />
+                    <loadfile srcfile="@{dir}/@{module}_@{lang}.js"
+                              property="@{module}-@{lang}-code" />
 
                     <var name="lang.use" value="{use:[" />
 
-                    <for list="${component.lang.use}" param="submod" trim="true">                   
-                       <sequential>
-                             <var name="lang.use" value="${lang.use}'lang/@{submod}_@{lang}'," />
-                       </sequential>
+                    <for list="${component.lang.use}" param="submod" trim="true">
+                        <sequential>
+                            <var name="lang.use" value="${lang.use}'lang/@{submod}_@{lang}'," />
+                        </sequential>
                     </for>
 
-                	<var name="lang.use" value="${lang.use}]}" />
+                    <var name="lang.use" value="${lang.use}]}" />
 
                     <propertyregex property="@{module}-@{lang}-details"
-                      input="${lang.use}"
-                      regexp="(\,\s*?\])"
-                      replace="]"
-                      casesensitive="false" />
+                                   input="${lang.use}"
+                                   regexp="(\,\s*?\])"
+                                   replace="]"
+                                   casesensitive="false" />
 
-                    <copy file="${builddir}/files/rolluptemplate.txt" tofile="@{dir}/@{module}_@{lang}.js" overwrite="true">
+                    <copy file="${builddir}/files/rolluptemplate.txt"
+                          tofile="@{dir}/@{module}_@{lang}.js"
+                          overwrite="true">
                         <filterset>
-                            <filter token="CODE" value="${@{module}-@{lang}-code}"/>
+                            <filter token="CODE" value="${@{module}-@{lang}-code}" />
                             <filter token="YUIVAR" value="${yui.variable}" />
-                            <filter token="MODULE" value="lang/@{module}_@{lang}"/>
-                            <filter token="DETAILS" value=", ${@{module}-@{lang}-details}"/>
+                            <filter token="MODULE" value="lang/@{module}_@{lang}" />
+                            <filter token="DETAILS" value=", ${@{module}-@{lang}-details}" />
                         </filterset>
                     </copy>
-        		</sequential>
-        	</for>
+                </sequential>
+            </for>
 
             <loadfile srcfile="@{dir}/@{module}.js" property="@{module}--code" />
 
             <var name="lang.use" value="{use:[" />
-            <for list="${component.lang.use}" param="submod" trim="true">                   
-               <sequential>
-                     <var name="lang.use" value="${lang.use}'lang/@{submod}'," />
-               </sequential>
+            <for list="${component.lang.use}" param="submod" trim="true">
+                <sequential>
+                    <var name="lang.use" value="${lang.use}'lang/@{submod}'," />
+                </sequential>
             </for>
             <var name="lang.use" value="${lang.use}]}" />
 
             <propertyregex property="@{module}--details"
-              input="${lang.use}"
-              regexp="(\,\s*?\])"
-              replace="]"
-              casesensitive="false" />
+                           input="${lang.use}"
+                           regexp="(\,\s*?\])"
+                           replace="]"
+                           casesensitive="false" />
 
-            <copy file="${builddir}/files/rolluptemplate.txt" tofile="@{dir}/@{module}.js" overwrite="true">
+            <copy file="${builddir}/files/rolluptemplate.txt"
+                  tofile="@{dir}/@{module}.js"
+                  overwrite="true">
                 <filterset>
-                    <filter token="CODE" value="${@{module}--code}"/>
+                    <filter token="CODE" value="${@{module}--code}" />
                     <filter token="YUIVAR" value="${yui.variable}" />
-                    <filter token="MODULE" value="lang/@{module}"/>
-                    <filter token="DETAILS" value=", ${@{module}--details}"/>
+                    <filter token="MODULE" value="lang/@{module}" />
+                    <filter token="DETAILS" value=", ${@{module}--details}" />
                 </filterset>
             </copy>
 
@@ -430,16 +478,21 @@
         <attribute name="module" />
         <attribute name="file" />
         <sequential>
-            <loadfile srcfile="${builddir}/files/css-stamp.txt" property="@{module}" >
-                <filterchain>
-                    <replacetokens>
-                        <token key="MODULE" value="@{module}"/>
-                    </replacetokens>
-                </filterchain>
-            </loadfile>
-            <echo level="verbose">Adding CSS Registration Code to @{file}</echo>
-            <concat destfile="@{file}" append="true" fixlastline="true">${@{module}}</concat>
+            <if>
+                <isset property="@{file}.outofdate" />
+                <then>
+                    <loadfile srcfile="${builddir}/files/css-stamp.txt" property="@{module}">
+                        <filterchain>
+                            <replacetokens>
+                                <token key="MODULE" value="@{module}" />
+                            </replacetokens>
+                        </filterchain>
+                    </loadfile>
+                    <echo level="verbose">Adding CSS Registration Code to @{file}</echo>
+                    <concat destfile="@{file}" append="true" fixlastline="true">${@{module}}</concat>
+                </then>
+            </if>
         </sequential>
-    </macrodef>    
-	
+    </macrodef>
+
 </project>
